@@ -60,7 +60,9 @@ app.use("/api/alerts", alertRoutes);
 app.use("/api/system", systemRoutes);
 app.use("/api/users", userRoutes);
 
-/* START SERVER */
+
+
+
 
 server.listen(5000, () => {
   console.log("Server running on port 5000");

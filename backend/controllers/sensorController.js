@@ -6,16 +6,17 @@ import pool from "../config/db.js";
 
 export const createSensor = async (req, res) => {
 
-  const { sensor_uid, type, location } = req.body;
+      const { sensor_uid, type, location, esp_id, gpio_pin } = req.body;
 
   try {
 
-    const result = await pool.query(
-      `INSERT INTO sensors (sensor_uid, type, location)
-       VALUES ($1, $2, $3)
-       RETURNING *`,
-      [sensor_uid, type, location]
-    );
+
+      await pool.query(
+        `INSERT INTO sensors (sensor_uid, type, location, esp_id, gpio_pin)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *`,
+        [sensor_uid, type, location, esp_id, gpio_pin]
+      );
 
     res.status(201).json(result.rows[0]);
 
@@ -62,24 +63,31 @@ export const getSensors = async (req, res) => {
 export const updateSensor = async (req, res) => {
 
   const { id } = req.params;
-  const { type, location, status } = req.body;
+
+  const {
+    sensor_uid,
+    type,
+    location,
+    esp_id,
+    gpio_pin
+  } = req.body;
 
   try {
 
     const result = await pool.query(
       `UPDATE sensors
-       SET type=$1, location=$2, status=$3
-       WHERE id=$4
+       SET sensor_uid=$1,
+           type=$2,
+           location=$3,
+           esp_id=$4,
+           gpio_pin=$5
+       WHERE id=$6
        RETURNING *`,
-      [type, location, status, id]
+      [sensor_uid, type, location, esp_id, gpio_pin, id]
     );
 
     if (result.rows.length === 0) {
-
-      return res.status(404).json({
-        message: "Sensor not found"
-      });
-
+      return res.status(404).json({ message: "Sensor not found" });
     }
 
     res.json(result.rows[0]);

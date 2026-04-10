@@ -8,9 +8,9 @@ import { detectAnomaly } from "../utils/anomalyDetector.js";
    CREATE MEASUREMENT + AI
 =========================== */
 export const createMeasurement = async (req, res) => {
-  console.log("📥 Incoming:", req.body);
+  console.log(" Incoming:", req.body);
 
-  const { sensor_id, type, value } = req.body;
+  const { sensor_id, value } = req.body;
 
   try {
     /* 🔹 VALIDATION */
@@ -19,9 +19,9 @@ export const createMeasurement = async (req, res) => {
       return res.status(400).json({ error: "Invalid value" });
     }
 
-    /* 🔹 1. GET SENSOR INFO */
+    /* 🔹 1. GET SENSOR INFO (WITH TYPE 🔥) */
     const sensorResult = await pool.query(
-      `SELECT sensor_uid, location, is_muted, esp_id, gpio_pin 
+      `SELECT sensor_uid, location, is_muted, esp_id, gpio_pin, type 
        FROM sensors WHERE id=$1`,
       [sensor_id]
     );
@@ -31,6 +31,7 @@ export const createMeasurement = async (req, res) => {
     }
 
     const sensor = sensorResult.rows[0];
+    const type = sensor.type; // 🔥 type comes from DB now
 
     /* 🔹 2. GET HISTORY */
     const historyResult = await pool.query(
@@ -64,30 +65,25 @@ export const createMeasurement = async (req, res) => {
        🔇 MUTE SYSTEM
     =========================== */
     if (sensor.is_muted) {
-      console.log(`🔇 Sensor ${sensor.sensor_uid} muted → skip alerts`);
+      console.log(`Sensor ${sensor.sensor_uid} muted → skip alerts`);
     } else {
 
-      /* ===========================
-         🔁 PREVENT DUPLICATE ALERTS 🔥
-      =========================== */
+      /* 🔁 PREVENT DUPLICATE ALERTS */
       const recentAlert = await pool.query(
         `SELECT id FROM alerts
          WHERE sensor_id=$1 AND type=$2 AND status='active'
-         ORDER BY created_at DESC
          LIMIT 1`,
         [sensor_id, type]
       );
 
       const hasActiveAlert = recentAlert.rows.length > 0;
 
-      /* ===========================
-         🟡 THRESHOLD ALERT
-      =========================== */
+      /* 🟡 THRESHOLD ALERT */
       const threshold = thresholds[type];
 
       if (!hasActiveAlert && threshold && numericValue > threshold) {
         alert = await createAlert(
-          `⚠️ Threshold exceeded (${type}) on ${sensor.sensor_uid} (ESP: ${sensor.esp_id}, GPIO: ${sensor.gpio_pin})`,
+          ` Threshold exceeded (${type}) on ${sensor.sensor_uid} (ESP: ${sensor.esp_id}, GPIO: ${sensor.gpio_pin})`,
           "warning",
           sensor.sensor_uid,
           sensor.location,
@@ -96,11 +92,10 @@ export const createMeasurement = async (req, res) => {
         );
       }
 
+      /* 🔴 AI ALERT */
       if (!hasActiveAlert && aiResult.isAnomaly) {
-        console.log("AI ANOMALY DETECTED");
-
         alert = await createAlert(
-          `🚨 AI Anomaly (${type}) on ${sensor.sensor_uid} (ESP: ${sensor.esp_id}, GPIO: ${sensor.gpio_pin}) z=${aiResult.zScore.toFixed(2)}`,
+          ` AI Anomaly (${type}) on ${sensor.sensor_uid} (ESP: ${sensor.esp_id}, GPIO: ${sensor.gpio_pin}) z=${aiResult.zScore.toFixed(2)}`,
           "critical",
           sensor.sensor_uid,
           sensor.location,
@@ -109,7 +104,7 @@ export const createMeasurement = async (req, res) => {
         );
 
         await sendAlertEmail(
-          `🚨 AI Alert: ${type}`,
+          ` AI Alert: ${type}`,
           `Sensor: ${sensor.sensor_uid}
 ESP: ${sensor.esp_id}
 GPIO: ${sensor.gpio_pin}
@@ -119,9 +114,7 @@ Z-score: ${aiResult.zScore.toFixed(2)}`
       }
     }
 
-    /* ===========================
-       📡 WEBSOCKET
-    =========================== */
+    /* 📡 WEBSOCKET */
     const io = req.app.get("io");
 
     io.emit("new-measurement", {
@@ -134,9 +127,7 @@ Z-score: ${aiResult.zScore.toFixed(2)}`
       io.emit("new-alert", alert);
     }
 
-    /* ===========================
-       ✅ RESPONSE
-    =========================== */
+    /* ✅ RESPONSE */
     res.status(201).json({
       measurement: newMeasurement,
       ai: aiResult,
@@ -144,7 +135,7 @@ Z-score: ${aiResult.zScore.toFixed(2)}`
     });
 
   } catch (error) {
-    console.error(" Measurement Error FULL:", error);
+    console.error(" Measurement Error:", error);
     res.status(500).json({ error: "Failed to create measurement" });
   }
 };
@@ -154,18 +145,18 @@ Z-score: ${aiResult.zScore.toFixed(2)}`
 =========================== */
 export const getMeasurements = async (req, res) => {
   try {
-    const result = await pool.query(
-      "SELECT * FROM measurements ORDER BY recorded_at DESC"
-    );
+      const result = await pool.query(
+  `SELECT * FROM measurements
+   ORDER BY recorded_at DESC
+   LIMIT 200`
+);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-/* ===========================
-   GET BY SENSOR
-=========================== */
+
 export const getMeasurementsBySensor = async (req, res) => {
   const { sensorId } = req.params;
 
@@ -178,7 +169,6 @@ export const getMeasurementsBySensor = async (req, res) => {
     );
 
     res.json(result.rows);
-
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

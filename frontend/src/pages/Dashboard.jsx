@@ -12,7 +12,7 @@ import SystemStatus from "../components/SystemStatus";
 
 function Dashboard() {
 
-  const [stats, setStats] = useState([]);
+  const [stats, setStats] = useState(null);
   const [temperatureData, setTemperatureData] = useState([]);
   const [powerData, setPowerData] = useState([]);
   const [combinedData, setCombinedData] = useState([]);
@@ -34,7 +34,7 @@ function Dashboard() {
       const res = await API.get("/alerts/stats");
       setStats(res.data);
     } catch (err) {
-      console.log(err);
+      console.error("Stats error:", err);
     }
   };
 
@@ -55,7 +55,7 @@ function Dashboard() {
       });
 
     } catch (err) {
-      console.log(err);
+      console.error("Alerts error:", err);
     }
   };
 
@@ -80,7 +80,6 @@ function Dashboard() {
           zScore: m.zScore || 0
         };
 
-        /* INDIVIDUAL */
         if (m.type === "temperature") {
           tempChart.push(point);
           latest.temperature = m.value;
@@ -95,7 +94,6 @@ function Dashboard() {
         if (m.type === "water") latest.water = m.value;
         if (m.type === "dust") latest.dust = m.value;
 
-        /* COMBINED */
         if (!combinedMap[time]) {
           combinedMap[time] = {
             time,
@@ -116,7 +114,7 @@ function Dashboard() {
       setLiveData(latest);
 
     } catch (err) {
-      console.log(err);
+      console.error("Measurements error:", err);
     }
   };
 
@@ -127,13 +125,22 @@ function Dashboard() {
     loadAlerts();
   }, []);
 
-  /* ================= WEBSOCKET ================= */
+  /* ================= WEBSOCKET (FIXED) ================= */
   useEffect(() => {
 
-    const socket = io("http://localhost:5000");
+    const socket = io("http://localhost:5000", {
+      transports: ["websocket"],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
 
     socket.on("connect", () => {
       console.log("✅ WebSocket connected");
+    });
+
+    socket.on("disconnect", () => {
+      console.log("❌ WebSocket disconnected");
     });
 
     socket.on("new-measurement", (m) => {
@@ -147,7 +154,6 @@ function Dashboard() {
         zScore: m.zScore
       };
 
-      /* INDIVIDUAL */
       if (m.type === "temperature") {
         setTemperatureData(prev => [...prev.slice(-49), point]);
         setLiveData(prev => ({ ...prev, temperature: m.value }));
@@ -170,7 +176,6 @@ function Dashboard() {
         setLiveData(prev => ({ ...prev, dust: m.value }));
       }
 
-      /* 🔥 FIXED COMBINED (IMMUTABLE) */
       setCombinedData(prev => {
         const index = prev.findIndex(d => d.time === time);
 
@@ -206,16 +211,17 @@ function Dashboard() {
     socket.on("new-alert", (alert) => {
       toast.error(alert.message);
       loadAlerts();
+      loadStats(); // 🔥 update stats live
     });
 
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect(); // ✅ IMPORTANT FIX
+    };
 
   }, []);
 
   return (
-
     <MainLayout>
-
       <div className="space-y-8">
 
         {/* HEADER */}
@@ -254,20 +260,15 @@ function Dashboard() {
           <SensorCard title="Dust" value={liveData.dust || "--"} unit="µg/m³" />
         </div>
 
-        {/* 🔥 COMBINED CHART */}
+        {/* COMBINED CHART */}
         <MultiSensorChart data={combinedData} />
-
-        
 
         {/* SYSTEM STATUS */}
         <SystemStatus />
 
       </div>
-
     </MainLayout>
-
   );
-
 }
 
 export default Dashboard;
