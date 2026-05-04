@@ -1,31 +1,35 @@
-
 import pool from "../config/db.js";
+
+import { getGatewayStatus } from "../services/mqttService.js";
+
+let mqttStatus = "Disconnected";
+
+export const setMqttStatus = (status) => {
+  mqttStatus = status;
+};
+
 
 
 export const getSystemStatus = async (req, res) => {
-
   try {
-
     res.json({
-
       backend: "Running",
       database: "Connected",
 
-      mqtt: "Not Configured",
-
-      gateway: "Not Available"
-
+      // 🔥 REAL VALUES NOW
+      mqtt: mqttStatus,
+      gateway: getGatewayStatus()
     });
 
   } catch (error) {
-
     res.status(500).json({
       error: error.message
     });
-
   }
+};
 
-}
+
+
 export const getSensors = async (req, res) => {
 
   try {
@@ -64,4 +68,3 @@ export const getSensors = async (req, res) => {
   }
 
 };
-

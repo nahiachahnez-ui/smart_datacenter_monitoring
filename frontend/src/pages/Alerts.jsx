@@ -1,30 +1,22 @@
 import { useEffect, useState } from "react";
 import API from "../api/api";
-import MainLayout from "../layouts/MainLayout";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 
 function Alerts() {
 
   const [alerts, setAlerts] = useState([]);
-  const [selectedAlert, setSelectedAlert] = useState(null);
-
-  const [filters, setFilters] = useState({
-    search: "",
-    type: "",
-    status: "",
-    sort: "latest"
-  });
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const navigate = useNavigate();
 
-  /* ================= LOAD ================= */
+  /* LOAD ALERTS */
   const loadAlerts = async () => {
     try {
       const res = await API.get("/alerts");
       setAlerts(res.data || []);
-    } catch (error) {
-      console.error(error);
+    } catch {
       toast.error("Failed to load alerts");
     }
   };
@@ -33,221 +25,178 @@ function Alerts() {
     loadAlerts();
   }, []);
 
-  /* ================= ACTIONS ================= */
+  /* ACTIONS */
   const resolveAlert = async (id) => {
     try {
       await API.put(`/alerts/${id}/resolve`);
-      toast.success("Resolved");
-      setSelectedAlert(null);
+      toast.success("Alert resolved");
       loadAlerts();
     } catch {
-      toast.error("Error");
+      toast.error("Failed to resolve");
     }
   };
 
   const cancelAlert = async (id) => {
     try {
       await API.put(`/alerts/${id}/cancel`);
-      toast.success("Cancelled");
-      setSelectedAlert(null);
+      toast.success("Alert muted");
       loadAlerts();
     } catch {
-      toast.error("Error");
+      toast.error("Failed to mute");
     }
   };
 
-  /* ================= FILTER ================= */
-  const filteredAlerts = alerts
-    .filter((a) => {
-      return (
-        ((a.message || "").toLowerCase().includes(filters.search.toLowerCase()) ||
-         (a.sensor_name || "").toLowerCase().includes(filters.search.toLowerCase())) &&
-        (filters.type ? a.type === filters.type : true) &&
-        (filters.status ? a.status === filters.status : true)
-      );
-    })
-    .sort((a, b) => {
-      return filters.sort === "latest"
-        ? new Date(b.created_at) - new Date(a.created_at)
-        : new Date(a.created_at) - new Date(b.created_at);
-    });
+  const reopenAlert = async (id) => {
+    try {
+      await API.put(`/alerts/${id}/reopen`);
+      toast.success("Alert reopened");
+      loadAlerts();
+    } catch {
+      toast.error("Failed to reopen");
+    }
+  };
+
+  /* FORMAT CLEAN ALERT MESSAGE */
+  const formatAlert = (a) => {
+    const type = a.type || "value";
+    const location = a.location || "unknown location";
+
+    const valueMatch = a.message?.match(/\d+/);
+    const value = valueMatch ? valueMatch[0] : "";
+
+    return `${type} above ${value} in ${location}`;
+  };
+
+  /* FILTER */
+  const filtered = alerts.filter((a) => {
+    const matchSearch =
+      (a.message || "").toLowerCase().includes(search.toLowerCase());
+
+    const matchStatus =
+      statusFilter === "all" || a.status === statusFilter;
+
+    return matchSearch && matchStatus;
+  });
 
   return (
-    <MainLayout>
+    <div className="space-y-8 text-gray-900 dark:text-gray-100">
 
-      <div className="space-y-6 text-gray-900 dark:text-gray-100">
+      {/* HEADER */}
+      <h2 className="text-3xl font-bold">Alerts</h2>
 
-        <h2 className="text-3xl font-bold">Alerts</h2>
+      {/* SEARCH */}
+      <input
+        placeholder="Search..."
+        value={search}
+        onChange={(e)=>setSearch(e.target.value)}
+        className="p-3 rounded-lg border w-80 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+      />
 
-        {/* FILTERS */}
-        <div className="grid grid-cols-4 gap-4">
-
-          <input
-            placeholder="Search..."
-            value={filters.search}
-            onChange={(e)=>setFilters({...filters, search:e.target.value})}
-            className="p-2 border rounded bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600"
-          />
-
-          <select
-            value={filters.type}
-            onChange={(e)=>setFilters({...filters, type:e.target.value})}
-            className="p-2 border rounded bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600"
+      {/* FILTER */}
+      <div className="flex gap-3">
+        {["all","active","resolved","cancelled"].map((f)=>(
+          <button
+            key={f}
+            onClick={()=>setStatusFilter(f)}
+            className={`px-4 py-2 rounded ${
+              statusFilter===f
+                ? "bg-gray-900 text-white"
+                : "border border-gray-300 dark:border-gray-600"
+            }`}
           >
-            <option value="">All Types</option>
-            <option value="temperature">Temperature</option>
-            <option value="humidity">Humidity</option>
-            <option value="power">Power</option>
-            <option value="dust">Dust</option>
-            <option value="fire">Fire</option>
-            <option value="water">Water</option>
-          </select>
+            {f}
+          </button>
+        ))}
+      </div>
 
-          <select
-            value={filters.status}
-            onChange={(e)=>setFilters({...filters, status:e.target.value})}
-            className="p-2 border rounded bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600"
-          >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="resolved">Resolved</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+      {/* TABLE */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow">
 
-          <select
-            value={filters.sort}
-            onChange={(e)=>setFilters({...filters, sort:e.target.value})}
-            className="p-2 border rounded bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600"
-          >
-            <option value="latest">Latest</option>
-            <option value="oldest">Oldest</option>
-          </select>
+        <table className="w-full text-sm">
 
-        </div>
+          <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+            <tr>
+              <th className="p-4 text-left">Alert</th>
+              <th>Status</th>
+              <th>Sensor</th>
+              <th>Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
 
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Showing {filteredAlerts.length} alerts
-        </p>
+          <tbody>
+            {filtered.map((a)=>(
+              <tr
+                key={a.id}
+                className="border-t hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
 
-        {/* TABLE */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow overflow-hidden">
-
-          <table className="w-full">
-
-            <thead className="bg-gray-50 dark:bg-gray-800">
-              <tr>
-                <th className="p-4 text-left text-gray-700 dark:text-gray-200">Alert</th>
-                <th className="text-gray-700 dark:text-gray-200">Type</th>
-                <th className="text-gray-700 dark:text-gray-200">Status</th>
-                <th className="text-gray-700 dark:text-gray-200">Date</th>
-                <th className="text-gray-700 dark:text-gray-200">Sensor</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredAlerts.map((a) => (
-                <tr
-                  key={a.id}
-                  className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                  onClick={() => setSelectedAlert(a)}
+                {/* ALERT MESSAGE */}
+                <td
+                  className={`p-4 font-medium ${
+                    a.level === "critical"
+                      ? "text-red-600 dark:text-red-400"
+                      : ""
+                  }`}
                 >
-                  <td className="p-4 text-gray-800 dark:text-gray-100">
-                     {a.message}
-                  </td>
+                  {formatAlert(a)}
+                </td>
 
-                  <td className="text-gray-800 dark:text-gray-100">
-                    {a.type}
-                  </td>
+                {/* STATUS */}
+                <td>
+                  <span className={statusStyles[a.status]}>
+                    {a.status}
+                  </span>
+                </td>
 
-                  <td>
-                    <span
-                      className={
-                        a.status === "active"
-                          ? "text-red-500 font-semibold"
-                          : a.status === "resolved"
-                          ? "text-green-500 font-semibold"
-                          : "text-gray-400 font-semibold"
-                      }
-                    >
-                      {a.status}
-                    </span>
-                  </td>
+                {/* CLICKABLE SENSOR */}
+                <td
+                  className="text-blue-600 cursor-pointer hover:underline"
+                  onClick={() => navigate('/sensors')}
+                >
+                  {a.sensor_name}
+                </td>
 
-                  <td className="text-gray-800 dark:text-gray-100">
-                    {new Date(a.created_at).toLocaleString()}
-                  </td>
+                {/* DATE */}
+                <td>
+                  {new Date(a.created_at).toLocaleString()}
+                </td>
 
-                  <td
-                    className="text-blue-500 underline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate("/sensors");
-                    }}
-                  >
-                    {a.sensor_name}
-                  </td>
+                {/* ACTIONS */}
+                <td className="flex gap-2 p-4">
 
-                </tr>
-              ))}
-            </tbody>
+                  {/* ACTIVE */}
+                  {a.status === "active" && (
+                    <>
+                      <button onClick={()=>resolveAlert(a.id)}>resolve </button>
+                      <button onClick={()=>cancelAlert(a.id)}>mute </button>
+                    </>
+                  )}
 
-          </table>
+                  {/* REOPEN */}
+                  {(a.status === "resolved" || a.status === "cancelled") && (
+                    <button onClick={()=>reopenAlert(a.id)}>🔄</button>
+                  )}
 
-        </div>
+                </td>
+
+              </tr>
+            ))}
+          </tbody>
+
+        </table>
 
       </div>
 
-      {/* MODAL */}
-      {selectedAlert && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60">
-
-          <div className="bg-white dark:bg-gray-900 p-6 rounded-xl w-[500px] text-gray-900 dark:text-gray-100">
-
-            <h3 className="text-xl font-bold mb-4">
-              Alert Details
-            </h3>
-
-            <div className="space-y-2 text-sm">
-              <p><b>Message:</b> {selectedAlert.message}</p>
-              <p><b>Sensor:</b> {selectedAlert.sensor_name}</p>
-              <p><b>Type:</b> {selectedAlert.type}</p>
-              <p><b>Status:</b> {selectedAlert.status}</p>
-              <p><b>Location:</b> {selectedAlert.location}</p>
-              <p><b>Date:</b> {new Date(selectedAlert.created_at).toLocaleString()}</p>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-
-              <button
-                onClick={() => resolveAlert(selectedAlert.id)}
-                className="w-full bg-green-600 text-white py-2 rounded"
-              >
-                Resolve
-              </button>
-
-              <button
-                onClick={() => cancelAlert(selectedAlert.id)}
-                className="w-full bg-red-600 text-white py-2 rounded"
-              >
-                Cancel
-              </button>
-
-            </div>
-
-            <button
-              onClick={() => setSelectedAlert(null)}
-              className="mt-4 text-gray-500"
-            >
-              Close
-            </button>
-
-          </div>
-
-        </div>
-      )}
-
-    </MainLayout>
+    </div>
   );
 }
+
+/* STATUS STYLE */
+const statusStyles = {
+  active: "px-2 py-1 rounded-full text-xs bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400",
+  resolved: "px-2 py-1 rounded-full text-xs bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400",
+  cancelled: "px-2 py-1 rounded-full text-xs bg-gray-200 text-gray-700 dark:bg-gray-600/30 dark:text-gray-300"
+};
 
 export default Alerts;

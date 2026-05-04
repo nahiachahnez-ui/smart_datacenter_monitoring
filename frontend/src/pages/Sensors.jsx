@@ -1,28 +1,35 @@
 import { useEffect, useState } from "react";
 import API from "../api/api";
-import MainLayout from "../layouts/MainLayout";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 
 function Sensors() {
+  const navigate = useNavigate();
+
+  const role = localStorage.getItem("role");
 
   const [sensors, setSensors] = useState([]);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [showForm, setShowForm] = useState(false);
 
-  const [filters, setFilters] = useState({
-    search: "",
+  const [form, setForm] = useState({
+    sensor_uid: "",
     type: "",
-    esp: "",
-    gpio: "",
     location: "",
-    sort: "latest"
+    esp_id: "",
+    gpio_pin: ""
   });
 
-  /* ================= LOAD ================= */
+  const [editingSensor, setEditingSensor] = useState(null);
+  const [editForm, setEditForm] = useState({});
+
+  /* LOAD */
   const loadSensors = async () => {
     try {
       const res = await API.get("/sensors");
       setSensors(res.data || []);
-    } catch (error) {
-      console.error(error);
+    } catch {
       toast.error("Failed to load sensors");
     }
   };
@@ -31,151 +38,262 @@ function Sensors() {
     loadSensors();
   }, []);
 
-  /* ================= FILTER ================= */
-  const filteredSensors = sensors
-    .filter((s) => {
-      return (
-        (s.sensor_uid || "").toLowerCase().includes(filters.search.toLowerCase()) &&
-        (filters.type ? s.type === filters.type : true) &&
-        (s.esp_id || "").toLowerCase().includes(filters.esp.toLowerCase()) &&
-        String(s.gpio_pin || "").includes(filters.gpio) &&
-        (s.location || "").toLowerCase().includes(filters.location.toLowerCase())
-      );
-    })
-    .sort((a, b) => {
-      return filters.sort === "latest"
-        ? b.id - a.id
-        : a.id - b.id;
+  /* ADD */
+  const addSensor = async (e) => {
+    e.preventDefault();
+
+    try {
+      await API.post("/sensors", form);
+      toast.success("Sensor added");
+
+      setForm({
+        sensor_uid: "",
+        type: "",
+        location: "",
+        esp_id: "",
+        gpio_pin: ""
+      });
+
+      setShowForm(false);
+      loadSensors();
+
+    } catch {
+      toast.error("Failed to add sensor");
+    }
+  };
+
+  /* DELETE */
+  const deleteSensor = async (id) => {
+    if (!window.confirm("Delete this sensor?")) return;
+
+    try {
+      await API.delete(`/sensors/${id}`);
+      toast.success("Deleted");
+      loadSensors();
+    } catch {
+      toast.error("Delete failed");
+    }
+  };
+
+  /* EDIT */
+  const openEdit = (s) => {
+    setEditingSensor(s);
+    setEditForm({
+      ...s
     });
+  };
+
+  const updateSensor = async () => {
+    try {
+      await API.put(`/sensors/${editingSensor.id}`, editForm);
+      toast.success("Updated");
+      setEditingSensor(null);
+      loadSensors();
+    } catch {
+      toast.error("Update failed");
+    }
+  };
+
+  /* FILTER */
+  const filtered = sensors.filter((s) => {
+    return (
+      (s.sensor_uid || "").toLowerCase().includes(search.toLowerCase()) &&
+      (typeFilter ? s.type === typeFilter : true)
+    );
+  });
 
   return (
-    <MainLayout>
+    <div className="space-y-8 text-gray-900 dark:text-gray-100">
 
-      <div className="space-y-6 text-gray-900 dark:text-gray-100">
-
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold">Sensors</h2>
 
-        {/* FILTERS */}
-        <div className="grid grid-cols-3 gap-4">
-
-          <input
-            placeholder="Search UID..."
-            value={filters.search}
-            onChange={(e)=>setFilters({...filters, search:e.target.value})}
-            className="p-2 border rounded bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600"
-          />
-
-          <select
-            value={filters.type}
-            onChange={(e)=>setFilters({...filters, type:e.target.value})}
-            className="p-2 border rounded bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600"
+        {role === "admin" && (
+          <button
+            onClick={() => setShowForm(prev => !prev)}
+            className="bg-gray-900 text-white px-4 py-2 rounded-lg"
           >
-            <option value="">All Types</option>
-            <option value="temperature">Temperature</option>
-            <option value="humidity">Humidity</option>
-            <option value="power">Power</option>
-            <option value="dust">Dust</option>
-            <option value="fire">Fire</option>
-            <option value="water">Water</option>
-          </select>
+            {showForm ? "Close" : "+ Add Sensor"}
+          </button>
+        )}
+      </div>
 
-          <input
-            placeholder="ESP ID..."
-            value={filters.esp}
-            onChange={(e)=>setFilters({...filters, esp:e.target.value})}
-            className="p-2 border rounded bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600"
-          />
+      {/* FILTERS */}
+      <div className="flex gap-4">
 
-          <input
-            placeholder="GPIO..."
-            value={filters.gpio}
-            onChange={(e)=>setFilters({...filters, gpio:e.target.value})}
-            className="p-2 border rounded bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600"
-          />
+        <input
+          placeholder="Search UID..."
+          value={search}
+          onChange={(e)=>setSearch(e.target.value)}
+          className="p-3 rounded-lg border w-64 bg-white dark:bg-gray-800"
+        />
 
-          <input
-            placeholder="Location..."
-            value={filters.location}
-            onChange={(e)=>setFilters({...filters, location:e.target.value})}
-            className="p-2 border rounded bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600"
-          />
-
-          <select
-            value={filters.sort}
-            onChange={(e)=>setFilters({...filters, sort:e.target.value})}
-            className="p-2 border rounded bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600"
-          >
-            <option value="latest">Latest</option>
-            <option value="oldest">Oldest</option>
-          </select>
-
-        </div>
-
-        {/* TABLE */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow overflow-hidden">
-
-          <table className="w-full">
-
-            <thead className="bg-gray-50 dark:bg-gray-800">
-              <tr>
-                <th className="p-4 text-left text-gray-700 dark:text-gray-200">UID</th>
-                <th className="text-gray-700 dark:text-gray-200">Type</th>
-                <th className="text-gray-700 dark:text-gray-200">Location</th>
-                <th className="text-gray-700 dark:text-gray-200">ESP</th>
-                <th className="text-gray-700 dark:text-gray-200">GPIO</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredSensors.map((s) => (
-                <tr
-                  key={s.id}
-                  className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer"
-                >
-                  <td className="p-4 font-medium text-gray-800 dark:text-gray-100">
-                    {s.sensor_uid}
-                  </td>
-
-                  {/* TYPE COLOR */}
-                  <td
-                    className={
-                      s.type === "temperature"
-                        ? "text-red-500"
-                        : s.type === "water"
-                        ? "text-blue-500"
-                        : s.type === "power"
-                        ? "text-yellow-500"
-                        : s.type === "humidity"
-                        ? "text-green-500"
-                        : "text-gray-400"
-                    }
-                  >
-                    {s.type}
-                  </td>
-
-                  <td className="text-gray-800 dark:text-gray-100">
-                    {s.location || "-"}
-                  </td>
-
-                  <td className="text-gray-800 dark:text-gray-100">
-                    {s.esp_id || "-"}
-                  </td>
-
-                  <td className="text-gray-800 dark:text-gray-100">
-                    {s.gpio_pin ?? "-"}
-                  </td>
-
-                </tr>
-              ))}
-            </tbody>
-
-          </table>
-
-        </div>
+        <select
+          value={typeFilter}
+          onChange={(e)=>setTypeFilter(e.target.value)}
+          className="p-3 rounded-lg border bg-white dark:bg-gray-800"
+        >
+          <option value="">All Types</option>
+          <option value="temperature">Temperature</option>
+          <option value="humidity">Humidity</option>
+          <option value="power">Power</option>
+          <option value="dust">Dust</option>
+          <option value="water">Water</option>
+        </select>
 
       </div>
 
-    </MainLayout>
+      {/* ADD FORM */}
+      {showForm && role === "admin" && (
+        <div className="bg-white dark:bg-gray-900 p-6 rounded-xl border shadow">
+
+          <h3 className="text-lg font-semibold mb-4">Add Sensor</h3>
+
+          <form onSubmit={addSensor} className="grid grid-cols-2 gap-4">
+
+            <Input label="UID"
+              value={form.sensor_uid}
+              onChange={(v)=>setForm({...form, sensor_uid:v})}
+            />
+
+            <Input label="Location"
+              value={form.location}
+              onChange={(v)=>setForm({...form, location:v})}
+            />
+
+            <Input label="ESP ID"
+              value={form.esp_id}
+              onChange={(v)=>setForm({...form, esp_id:v})}
+            />
+
+            <Input label="GPIO"
+              value={form.gpio_pin}
+              onChange={(v)=>setForm({...form, gpio_pin:v})}
+            />
+
+            <select
+              value={form.type}
+              onChange={(e)=>setForm({...form, type:e.target.value})}
+              className="col-span-2 p-3 border rounded bg-white dark:bg-gray-800"
+            >
+              <option value="">Select Type</option>
+              <option value="temperature">Temperature</option>
+              <option value="humidity">Humidity</option>
+              <option value="power">Power</option>
+              <option value="dust">Dust</option>
+              <option value="water">Water</option>
+            </select>
+
+            <button className="col-span-2 bg-gray-900 text-white py-2 rounded">
+              Create
+            </button>
+
+          </form>
+        </div>
+      )}
+
+      {/* TABLE */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl border shadow overflow-hidden">
+
+        <table className="w-full text-sm">
+
+          <thead className="bg-gray-100 dark:bg-gray-800">
+            <tr>
+              <th className="p-4 text-left">UID</th>
+              <th>Type</th>
+              <th>Location</th>
+              <th>ESP</th>
+              <th>GPIO</th>
+              {role === "admin" && <th className="text-center">Actions</th>}
+            </tr>
+          </thead>
+
+          <tbody>
+            {filtered.map((s) => (
+              <tr key={s.id} className="border-t hover:bg-gray-100 dark:hover:bg-gray-800">
+
+                <td 
+                  className="p-4 text-blue-600 cursor-pointer hover:underline"
+                  onClick={() => navigate('/sensors')}
+                >
+                  {s.sensor_uid}
+                </td>
+                <td>{s.type}</td>
+                <td>{s.location}</td>
+                <td>{s.esp_id}</td>
+                <td>{s.gpio_pin}</td>
+
+                {role === "admin" && (
+                  <td className="flex justify-center gap-2 p-4">
+                    <button onClick={()=>openEdit(s)}>✏️</button>
+                    <button onClick={()=>deleteSensor(s.id)}>🗑</button>
+                  </td>
+                )}
+
+              </tr>
+            ))}
+          </tbody>
+
+        </table>
+
+      </div>
+
+      {/* EDIT MODAL */}
+      {editingSensor && (
+        <Modal title="Edit Sensor" onClose={()=>setEditingSensor(null)}>
+
+          <Input value={editForm.sensor_uid}
+            onChange={(v)=>setEditForm({...editForm, sensor_uid:v})}
+          />
+
+          <Input value={editForm.location}
+            onChange={(v)=>setEditForm({...editForm, location:v})}
+          />
+
+          <div className="flex gap-2 mt-4">
+            <button onClick={()=>setEditingSensor(null)} className="flex-1 border py-2 rounded">
+              Cancel
+            </button>
+
+            <button onClick={updateSensor} className="flex-1 bg-gray-900 text-white py-2 rounded">
+              Save
+            </button>
+          </div>
+
+        </Modal>
+      )}
+
+    </div>
+  );
+}
+
+/* INPUT */
+function Input({ label, value, onChange }) {
+  return (
+    <div>
+      {label && <label className="text-sm">{label}</label>}
+      <input
+        value={value || ""}
+        onChange={(e)=>onChange(e.target.value)}
+        className="w-full p-3 border rounded bg-white dark:bg-gray-800"
+      />
+    </div>
+  );
+}
+
+/* MODAL */
+function Modal({ children, title, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center">
+      <div className="bg-white dark:bg-gray-900 p-6 rounded w-[400px]">
+        <h3 className="mb-4 font-semibold">{title}</h3>
+        {children}
+        <button onClick={onClose} className="mt-4 w-full border py-2 rounded">
+          Close
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -145,11 +145,28 @@ Z-score: ${aiResult.zScore.toFixed(2)}`
 =========================== */
 export const getMeasurements = async (req, res) => {
   try {
-      const result = await pool.query(
-  `SELECT * FROM measurements
-   ORDER BY recorded_at DESC
-   LIMIT 200`
-);
+    const result = await pool.query(
+      `SELECT * FROM measurements
+       ORDER BY recorded_at DESC
+       LIMIT 200`
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/* ===========================
+   GET LATEST VALUE PER TYPE
+=========================== */
+export const getLatestMeasurements = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT DISTINCT ON (type)
+         id, sensor_id, type, value, recorded_at
+       FROM measurements
+       ORDER BY type, recorded_at DESC`
+    );
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });

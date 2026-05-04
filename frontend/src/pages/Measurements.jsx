@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import API from "../api/api";
-import MainLayout from "../layouts/MainLayout";
 import SensorChart from "../components/SensorChart";
 import { toast } from "react-toastify";
 
@@ -23,11 +22,9 @@ function Measurements() {
 
         res.data.forEach((m) => {
 
-          // 🔥 SAFE CHECK
           if (!m.recorded_at || m.value == null) return;
 
           const date = new Date(m.recorded_at);
-
           if (isNaN(date.getTime())) return;
 
           const point = {
@@ -43,7 +40,6 @@ function Measurements() {
 
         });
 
-        // 🔥 LIMIT DATA (NO CRASH)
         setTemperature(temp.slice(-50));
         setHumidity(hum.slice(-50));
         setWater(wat.slice(-50));
@@ -61,49 +57,30 @@ function Measurements() {
   }, []);
 
   return (
-    <MainLayout>
 
-      <div className="space-y-6 text-gray-900 dark:text-gray-100">
+    <div className="space-y-6 text-gray-900 dark:text-gray-100">
 
-        <h1 className="text-3xl font-bold mb-6">
-          Measurements
-        </h1>
+      <h1 className="text-3xl font-bold">
+        Measurements
+      </h1>
 
-        {/* GRID */}
-        <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-          {/* CARD */}
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow">
-            <h3 className="mb-2 font-semibold">Temperature</h3>
-            <SensorChart title="Temperature" data={temperature} />
-          </div>
+        <SensorChart title="Temperature" data={temperature} />
+        <SensorChart title="Humidity" data={humidity} />
+        <SensorChart title="Water Level" data={water} />
+        <SensorChart title="Power" data={power} />
 
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow">
-            <h3 className="mb-2 font-semibold">Humidity</h3>
-            <SensorChart title="Humidity" data={humidity} />
-          </div>
-
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow">
-            <h3 className="mb-2 font-semibold">Water Level</h3>
-            <SensorChart title="Water Level" data={water} />
-          </div>
-
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow">
-            <h3 className="mb-2 font-semibold">Power</h3>
-            <SensorChart title="Power" data={power} />
-          </div>
-
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow col-span-2">
-            <h3 className="mb-2 font-semibold">Dust</h3>
-            <SensorChart title="Dust" data={dust} />
-          </div>
-
+        <div className="md:col-span-2">
+          <SensorChart title="Dust" data={dust} />
         </div>
 
       </div>
 
-    </MainLayout>
+    </div>
+
   );
+
 }
 
 export default Measurements;

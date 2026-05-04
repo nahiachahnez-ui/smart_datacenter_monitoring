@@ -8,9 +8,7 @@ export const getAlerts = async (req, res) => {
     const result = await pool.query(
       "SELECT * FROM alerts ORDER BY created_at DESC"
     );
-
     res.json(result.rows);
-
   } catch (error) {
     console.error("GET ALERTS ERROR:", error);
     res.status(500).json({ error: error.message });
@@ -32,7 +30,6 @@ export const getAlertStats = async (req, res) => {
     `);
 
     res.json(result.rows[0]);
-
   } catch (error) {
     console.error("STATS ERROR:", error);
     res.status(500).json({ error: error.message });
@@ -55,12 +52,7 @@ export const resolveAlert = async (req, res) => {
       [id]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Alert not found" });
-    }
-
     res.json(result.rows[0]);
-
   } catch (error) {
     console.error("RESOLVE ERROR:", error);
     res.status(500).json({ error: error.message });
@@ -68,7 +60,7 @@ export const resolveAlert = async (req, res) => {
 };
 
 /* ===========================
-   CANCEL ALERT
+   CANCEL ALERT (MUTE)
 =========================== */
 export const cancelAlert = async (req, res) => {
   const { id } = req.params;
@@ -83,14 +75,32 @@ export const cancelAlert = async (req, res) => {
       [id]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Alert not found" });
-    }
-
     res.json(result.rows[0]);
-
   } catch (error) {
     console.error("CANCEL ERROR:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/* ===========================
+   REOPEN ALERT (🔥 NEW)
+=========================== */
+export const reopenAlert = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      `UPDATE alerts
+       SET status='active',
+           resolved_at=NULL
+       WHERE id=$1
+       RETURNING *`,
+      [id]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("REOPEN ERROR:", error);
     res.status(500).json({ error: error.message });
   }
 };
