@@ -25,9 +25,11 @@ export default function LoginScreen() {
 
     try {
       const res = await API.post("/auth/login", { username, password });
-      await login(res.data.token, res.data.user.role);
+      await login(res.data.token, res.data.user);
     } catch (err) {
-      setError(err.response?.data?.message || "Login failed");
+      const msg = err.response?.data?.message || err.message || "Login failed";
+      console.error("Login error:", err.response?.data || err.message);
+      setError(msg);
     } finally {
       setLoading(false);
     }

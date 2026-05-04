@@ -4,8 +4,26 @@ import crypto from "crypto";
 import { sendTechnicianCredentials } from "../services/emailService.js";
 
 /* ===========================
-   GET USERS (TECH + ADMIN)
+   GET CURRENT USER (ME)
 =========================== */
+
+export const getMe = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, username, first_name, last_name, email, phone, role, active, email_verified, created_at
+       FROM users WHERE id = $1`,
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
 export const getTechnicians = async (req, res) => {
   try {

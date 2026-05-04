@@ -1,42 +1,92 @@
+import { useRef, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { ActivityIndicator, View } from "react-native";
+import {
+  View, Text, TouchableOpacity,
+  StyleSheet, ActivityIndicator, Animated
+} from "react-native";
+import PagerView from "react-native-pager-view";
 
 import { useAuth } from "../context/AuthContext";
-import LoginScreen    from "../screens/LoginScreen";
+import LoginScreen     from "../screens/LoginScreen";
 import DashboardScreen from "../screens/DashboardScreen";
-import AlertsScreen   from "../screens/AlertsScreen";
-import SensorsScreen  from "../screens/SensorsScreen";
+import AlertsScreen    from "../screens/AlertsScreen";
+import SensorsScreen   from "../screens/SensorsScreen";
+import ProfileScreen   from "../screens/ProfileScreen";
 
-const Tab   = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-function MainTabs() {
+const TABS = [
+  { name: "Dashboard", icon: "grid",          iconOff: "grid-outline"          },
+  { name: "Alerts",    icon: "notifications",  iconOff: "notifications-outline"  },
+  { name: "Sensors",   icon: "hardware-chip",  iconOff: "hardware-chip-outline"  },
+  { name: "Profile",   icon: "person",         iconOff: "person-outline"         },
+];
+
+const SCREENS = [DashboardScreen, AlertsScreen, SensorsScreen, ProfileScreen];
+
+function SwipeableTabs() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const pagerRef = useRef(null);
+
+  const goTo = (index) => {
+    pagerRef.current?.setPage(index);
+    setActiveIndex(index);
+  };
+
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerStyle:      { backgroundColor: "#1f2937" },
-        headerTintColor:  "#f9fafb",
-        headerTitleStyle: { fontWeight: "bold" },
-        tabBarStyle:      { backgroundColor: "#1f2937", borderTopColor: "#374151" },
-        tabBarActiveTintColor:   "#3b82f6",
-        tabBarInactiveTintColor: "#6b7280",
-        tabBarIcon: ({ focused, color, size }) => {
-          const icons = {
-            Dashboard: focused ? "grid"           : "grid-outline",
-            Alerts:    focused ? "notifications"  : "notifications-outline",
-            Sensors:   focused ? "hardware-chip"  : "hardware-chip-outline",
-          };
-          return <Ionicons name={icons[route.name]} size={size} color={color} />;
-        },
-      })}
-    >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Alerts"    component={AlertsScreen} />
-      <Tab.Screen name="Sensors"   component={SensorsScreen} />
-    </Tab.Navigator>
+    <View style={styles.container}>
+
+      {/* HEADER */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{TABS[activeIndex].name}</Text>
+        <View style={styles.liveDot} />
+      </View>
+
+      {/* SWIPEABLE PAGES */}
+      <PagerView
+        ref={pagerRef}
+        style={styles.pager}
+        initialPage={0}
+        onPageSelected={(e) => setActiveIndex(e.nativeEvent.position)}
+        overdrag
+      >
+        {SCREENS.map((Screen, i) => (
+          <View key={i} style={styles.page}>
+            <Screen />
+          </View>
+        ))}
+      </PagerView>
+
+      {/* BOTTOM TAB BAR */}
+      <View style={styles.tabBar}>
+        {TABS.map((tab, i) => {
+          const focused = activeIndex === i;
+          return (
+            <TouchableOpacity
+              key={tab.name}
+              style={styles.tabItem}
+              onPress={() => goTo(i)}
+              activeOpacity={0.7}
+            >
+              <Animated.View style={{ transform: [{ scale: focused ? 1.15 : 1 }] }}>
+                <Ionicons
+                  name={focused ? tab.icon : tab.iconOff}
+                  size={24}
+                  color={focused ? "#3b82f6" : "#4b5563"}
+                />
+              </Animated.View>
+              <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>
+                {tab.name}
+              </Text>
+              {focused && <View style={styles.tabIndicator} />}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+    </View>
   );
 }
 
@@ -45,7 +95,7 @@ export default function AppNavigator() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#111827" }}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3b82f6" />
       </View>
     );
@@ -53,9 +103,16 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          animation: "fade_from_bottom",
+          animationDuration: 280,
+          contentStyle: { backgroundColor: "#111827" },
+        }}
+      >
         {token ? (
-          <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen name="Main"  component={SwipeableTabs} />
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />
         )}
@@ -63,3 +120,51 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  container:       { flex: 1, backgroundColor: "#111827" },
+  loadingContainer:{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#111827" },
+
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 52,
+    paddingBottom: 14,
+    backgroundColor: "#1f2937",
+    borderBottomWidth: 1,
+    borderBottomColor: "#374151",
+  },
+  headerTitle: { color: "#f9fafb", fontSize: 20, fontWeight: "bold" },
+  liveDot:     { width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e" },
+
+  pager: { flex: 1 },
+  page:  { flex: 1 },
+
+  tabBar: {
+    flexDirection: "row",
+    backgroundColor: "#1f2937",
+    borderTopWidth: 1,
+    borderTopColor: "#374151",
+    paddingBottom: 20,
+    paddingTop: 10,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+    position: "relative",
+  },
+  tabLabel:       { color: "#4b5563", fontSize: 10, fontWeight: "600" },
+  tabLabelActive: { color: "#3b82f6" },
+  tabIndicator: {
+    position: "absolute",
+    top: -10,
+    width: 24,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: "#3b82f6",
+  },
+});

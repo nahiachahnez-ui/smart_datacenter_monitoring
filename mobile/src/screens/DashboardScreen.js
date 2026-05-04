@@ -95,14 +95,12 @@ export default function DashboardScreen() {
         />
       }
     >
-      {/* HEADER */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Dashboard</Text>
-        <View style={styles.liveRow}>
-          <View style={styles.liveDot} />
-          <Text style={styles.liveText}>LIVE</Text>
-        </View>
-      </View>
+      {/* TIMESTAMP */}
+      {prediction && (
+        <Text style={styles.timestamp}>
+          Last update: {new Date(prediction.created_at).toLocaleString()}
+        </Text>
+      )}
 
       {!prediction ? (
         <Text style={styles.empty}>Waiting for Raspberry Pi data...</Text>
@@ -110,9 +108,6 @@ export default function DashboardScreen() {
         <>
           {/* AI PREDICTION SECTION */}
           <Text style={styles.sectionTitle}>AI Prediction</Text>
-          <Text style={styles.timestamp}>
-            {new Date(prediction.created_at).toLocaleString()}
-          </Text>
 
           {/* BADGES */}
           <View style={styles.badgeRow}>
@@ -157,13 +152,8 @@ const styles = StyleSheet.create({
   container:    { flex: 1, backgroundColor: "#111827" },
   content:      { padding: 20, paddingBottom: 40 },
   center:       { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#111827" },
-  header:       { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
-  title:        { fontSize: 24, fontWeight: "bold", color: "#f9fafb" },
-  liveRow:      { flexDirection: "row", alignItems: "center", gap: 6 },
-  liveDot:      { width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e" },
-  liveText:     { color: "#22c55e", fontWeight: "bold", fontSize: 13 },
   sectionTitle: { fontSize: 16, fontWeight: "600", color: "#f9fafb", marginBottom: 6, marginTop: 16 },
-  timestamp:    { fontSize: 12, color: "#6b7280", marginBottom: 14 },
+  timestamp:    { fontSize: 12, color: "#6b7280", marginBottom: 16, marginTop: 4 },
   empty:        { color: "#6b7280", textAlign: "center", marginTop: 60, fontSize: 15 },
 
   badgeRow:  { flexDirection: "row", flexWrap: "wrap", gap: 12 },
