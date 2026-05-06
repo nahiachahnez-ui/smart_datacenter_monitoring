@@ -4,20 +4,17 @@
     "slug": "nexo-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
       "backgroundColor": "#111827"
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#111827"
-      },
       "permissions": ["NOTIFICATIONS"]
     },
     "ios": {
       "supportsTablet": false
     },
+    "newArchEnabled": true,
     "plugins": [
       [
         "expo-notifications",

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform
+  StyleSheet, ActivityIndicator, KeyboardAvoidingView,
+  Platform, Image
 } from "react-native";
 import API from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -42,7 +43,16 @@ export default function LoginScreen() {
     >
       <View style={styles.card}>
 
-        <Text style={styles.logo}>NEXO</Text>
+        {/* LOGO */}
+        <View style={styles.logoWrapper}>
+          <Image
+            source={require("../../assets/nexo.jpg")}
+            style={styles.logo}
+            resizeMode="cover"
+          />
+        </View>
+
+        <Text style={styles.appName}>NEXO</Text>
         <Text style={styles.subtitle}>Smart Datacenter Monitoring</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -96,8 +106,19 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 28,
   },
+  logoWrapper: {
+    alignItems: "center",
+    marginBottom: 12,
+  },
   logo: {
-    fontSize: 32,
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "#3b82f6",
+  },
+  appName: {
+    fontSize: 28,
     fontWeight: "bold",
     color: "#60a5fa",
     textAlign: "center",

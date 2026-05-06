@@ -1,5 +1,9 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { EventEmitter } from "eventemitter3";
+
+// shared event bus — api.js fires "unauthorized", AuthContext listens
+export const authEvents = new EventEmitter();
 
 const AuthContext = createContext(null);
 
@@ -8,6 +12,7 @@ export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // restore session on app launch
   useEffect(() => {
     const restore = async () => {
       const t = await AsyncStorage.getItem("token");
@@ -19,6 +24,16 @@ export function AuthProvider({ children }) {
       setLoading(false);
     };
     restore();
+  }, []);
+
+  // listen for 401 from API interceptor → auto logout
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setToken(null);
+      setUser(null);
+    };
+    authEvents.on("unauthorized", handleUnauthorized);
+    return () => authEvents.off("unauthorized", handleUnauthorized);
   }, []);
 
   const login = async (token, userData) => {

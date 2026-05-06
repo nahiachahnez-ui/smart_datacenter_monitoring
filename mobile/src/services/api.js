@@ -1,12 +1,13 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_IP } from "@env";
+import { authEvents } from "../context/AuthContext";
 
-// Change this to your machine's local IP when testing on a physical device
-// e.g. "http://192.168.1.x:5000/api"
-export const BASE_URL = "http://192.168.1.2:5000/api";
+export const BASE_URL = `http://${API_IP}:5000/api`;
 
 const API = axios.create({
   baseURL: BASE_URL,
+  timeout: 10000,
 });
 
 // Attach JWT token to every request
@@ -17,5 +18,18 @@ API.interceptors.request.use(async (req) => {
   }
   return req;
 });
+
+// On 401 → clear storage and signal AuthContext to redirect to login
+API.interceptors.response.use(
+  (res) => res,
+  async (err) => {
+    if (err.response?.status === 401) {
+      await AsyncStorage.removeItem("token");
+      await AsyncStorage.removeItem("user");
+      authEvents.emit("unauthorized");
+    }
+    return Promise.reject(err);
+  }
+);
 
 export default API;

@@ -4,11 +4,12 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import {
   View, Text, TouchableOpacity,
-  StyleSheet, ActivityIndicator, Animated
+  StyleSheet, ActivityIndicator, Animated, Image
 } from "react-native";
 import PagerView from "react-native-pager-view";
 
 import { useAuth } from "../context/AuthContext";
+import { useTheme, colors } from "../context/ThemeContext";
 import LoginScreen     from "../screens/LoginScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import AlertsScreen    from "../screens/AlertsScreen";
@@ -29,6 +30,8 @@ const SCREENS = [DashboardScreen, AlertsScreen, SensorsScreen, ProfileScreen];
 function SwipeableTabs() {
   const [activeIndex, setActiveIndex] = useState(0);
   const pagerRef = useRef(null);
+  const { dark } = useTheme();
+  const c = colors(dark);
 
   const goTo = (index) => {
     pagerRef.current?.setPage(index);
@@ -36,11 +39,21 @@ function SwipeableTabs() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: c.bg }]}>
 
       {/* HEADER */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{TABS[activeIndex].name}</Text>
+      <View style={[styles.header, { backgroundColor: c.header, borderBottomColor: c.border }]}>
+        <View style={styles.headerLeft}>
+          <Image
+            source={require("../../assets/nexo.jpg")}
+            style={styles.headerLogo}
+            resizeMode="cover"
+          />
+          <View>
+            <Text style={[styles.headerTitle, { color: c.text }]}>{TABS[activeIndex].name}</Text>
+            <Text style={[styles.headerSub, { color: c.textMuted }]}>NEXO Monitoring</Text>
+          </View>
+        </View>
         <View style={styles.liveDot} />
       </View>
 
@@ -60,7 +73,7 @@ function SwipeableTabs() {
       </PagerView>
 
       {/* BOTTOM TAB BAR */}
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { backgroundColor: c.header, borderTopColor: c.border }]}>
         {TABS.map((tab, i) => {
           const focused = activeIndex === i;
           return (
@@ -74,10 +87,10 @@ function SwipeableTabs() {
                 <Ionicons
                   name={focused ? tab.icon : tab.iconOff}
                   size={24}
-                  color={focused ? "#3b82f6" : "#4b5563"}
+                  color={focused ? "#3b82f6" : c.textMuted}
                 />
               </Animated.View>
-              <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>
+              <Text style={[styles.tabLabel, { color: focused ? "#3b82f6" : c.textMuted }]}>
                 {tab.name}
               </Text>
               {focused && <View style={styles.tabIndicator} />}
@@ -136,7 +149,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#374151",
   },
-  headerTitle: { color: "#f9fafb", fontSize: 20, fontWeight: "bold" },
+  headerLeft:  { flexDirection: "row", alignItems: "center", gap: 10 },
+  headerLogo:  { width: 36, height: 36, borderRadius: 8, borderWidth: 1, borderColor: "#3b82f6" },
+  headerTitle: { color: "#f9fafb", fontSize: 17, fontWeight: "bold" },
+  headerSub:   { color: "#6b7280", fontSize: 10 },
   liveDot:     { width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e" },
 
   pager: { flex: 1 },

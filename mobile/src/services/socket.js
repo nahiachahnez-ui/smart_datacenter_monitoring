@@ -1,7 +1,7 @@
 import { io } from "socket.io-client";
+import { API_IP } from "@env";
 
-// Same IP as API — backend Socket.IO server
-const socket = io("http://192.168.1.2:5000", {
+const socket = io(`http://${API_IP}:5000`, {
   transports: ["websocket"],
   autoConnect: true,
 });

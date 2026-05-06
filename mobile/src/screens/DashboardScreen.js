@@ -49,13 +49,18 @@ export default function DashboardScreen() {
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError]           = useState(null);
 
   const load = useCallback(async () => {
     try {
+      setError(null);
       const res = await API.get("/ai-predictions/latest");
       setPrediction(res.data);
     } catch (err) {
-      console.error("Dashboard load error:", err.message);
+      const status = err.response?.status;
+      const msg    = err.response?.data?.message || err.message;
+      console.error("Dashboard load error:", status, msg);
+      setError(`${status ? `[${status}] ` : ""}${msg}`);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -65,7 +70,10 @@ export default function DashboardScreen() {
   useEffect(() => {
     load();
 
-    const interval = setInterval(load, 10000);
+    // only poll if we have data — stops spam on network failure
+    const interval = setInterval(() => {
+      load();
+    }, 10000);
 
     socket.on("new-alert", () => load());
 
@@ -102,7 +110,15 @@ export default function DashboardScreen() {
         </Text>
       )}
 
-      {!prediction ? (
+      {error ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorTitle}>Connection Error</Text>
+          <Text style={styles.errorMsg}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={load}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : !prediction ? (
         <Text style={styles.empty}>Waiting for Raspberry Pi data...</Text>
       ) : (
         <>
