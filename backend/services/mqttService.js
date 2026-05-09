@@ -1,6 +1,27 @@
 import mqtt from "mqtt";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import pool from "../config/db.js";
 import { setMqttStatus } from "../controllers/systemController.js";
+import dotenv from "dotenv";
+dotenv.config();
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load the same CA cert used by the ESP32 and Pi broker
+// Place the ca.crt file in backend/config/ca.crt
+let caCert = null;
+const CA_PATH = path.join(__dirname, "../config/ca.crt");
+if (fs.existsSync(CA_PATH)) {
+  caCert = fs.readFileSync(CA_PATH);
+  console.log("MQTT CA cert loaded");
+} else {
+  console.warn("MQTT CA cert not found at backend/config/ca.crt — using insecure connection");
+}
+
+const BROKER_HOST = process.env.MQTT_BROKER || "192.168.1.8";
+const BROKER_PORT = parseInt(process.env.MQTT_PORT || "8883");
 
 let mqttClient;
 let lastMessageTime = null;
@@ -16,9 +37,7 @@ let sensorBuffer = {
   heartbeat:    null
 };
 
-// Map MQTT topics → buffer keys
 const TOPIC_MAP = {
-  // Raspberry Pi topics (nexo/)
   "nexo/datacenter/temperature": "temperature",
   "nexo/datacenter/humidity":    "humidity",
   "nexo/datacenter/water":       "water_level",
@@ -26,8 +45,7 @@ const TOPIC_MAP = {
   "nexo/datacenter/gas":         "gas_detected",
   "nexo/datacenter/dust":        "dust_level",
   "nexo/datacenter/heartbeat":   "heartbeat",
-
-  // Legacy ESP topics (esp1/)
+  // legacy ESP topics
   "esp1/temperature": "temperature",
   "esp1/humidity":    "humidity",
   "esp1/water":       "water_level",
@@ -37,7 +55,6 @@ const TOPIC_MAP = {
 };
 
 const saveSensorData = async (io) => {
-  // only save if we have at least temperature or humidity
   if (sensorBuffer.temperature === null && sensorBuffer.humidity === null) return;
 
   try {
@@ -59,8 +76,6 @@ const saveSensorData = async (io) => {
 
     const saved = result.rows[0];
     console.log("sensor_data saved:", saved.id);
-
-    // emit to dashboard for real-time update
     io.emit("new-sensor-data", saved);
 
   } catch (err) {
@@ -71,13 +86,22 @@ const saveSensorData = async (io) => {
 let saveTimer = null;
 
 export const initMQTT = (io) => {
-  mqttClient = mqtt.connect("mqtt://localhost:1883");
+  const options = {
+    port: BROKER_PORT,
+    rejectUnauthorized: false, // allow self-signed cert
+    ...(caCert && { ca: caCert }),
+  };
+
+  const protocol = BROKER_PORT === 8883 ? "mqtts" : "mqtt";
+  const brokerUrl = `${protocol}://${BROKER_HOST}`;
+
+  console.log(`Connecting to MQTT broker: ${brokerUrl}:${BROKER_PORT}`);
+
+  mqttClient = mqtt.connect(brokerUrl, options);
 
   mqttClient.on("connect", () => {
-    console.log("MQTT connected (backend)");
+    console.log("MQTT connected to Pi broker");
     setMqttStatus("Connected");
-
-    // subscribe to both Pi and legacy ESP topics
     mqttClient.subscribe("nexo/datacenter/#");
     mqttClient.subscribe("esp1/#");
   });
@@ -85,10 +109,7 @@ export const initMQTT = (io) => {
   mqttClient.on("message", (topic, message) => {
     const value = message.toString();
     console.log("MQTT:", topic, "→", value);
-
     lastMessageTime = Date.now();
-
-    // forward raw event to any listeners (keeps existing behavior)
     io.emit("mqtt_data", { topic, value });
 
     const key = TOPIC_MAP[topic];
@@ -96,19 +117,23 @@ export const initMQTT = (io) => {
 
     sensorBuffer[key] = parseFloat(value);
 
-    // debounce: wait 500ms after last message before saving
-    // so we batch all sensors arriving in the same burst
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => saveSensorData(io), 500);
   });
 
   mqttClient.on("close", () => {
-    console.log("MQTT disconnected");
+    console.log("MQTT disconnected from Pi broker");
     setMqttStatus("Disconnected");
   });
 
   mqttClient.on("error", (err) => {
     console.error("MQTT error:", err.message);
+    setMqttStatus("Disconnected");
+  });
+
+  mqttClient.on("offline", () => {
+    console.log("MQTT offline — Pi broker unreachable");
+    setMqttStatus("Disconnected");
   });
 };
 
