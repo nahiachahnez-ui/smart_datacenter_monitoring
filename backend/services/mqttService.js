@@ -9,15 +9,13 @@ dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Load the same CA cert used by the ESP32 and Pi broker
-// Place the ca.crt file in backend/config/ca.crt
 let caCert = null;
 const CA_PATH = path.join(__dirname, "../config/ca.crt");
 if (fs.existsSync(CA_PATH)) {
   caCert = fs.readFileSync(CA_PATH);
   console.log("MQTT CA cert loaded");
 } else {
-  console.warn("MQTT CA cert not found at backend/config/ca.crt — using insecure connection");
+  console.warn("MQTT CA cert not found — using insecure connection");
 }
 
 const BROKER_HOST = process.env.MQTT_BROKER || "192.168.1.8";
@@ -26,16 +24,9 @@ const BROKER_PORT = parseInt(process.env.MQTT_PORT || "8883");
 let mqttClient;
 let lastMessageTime = null;
 
-// Buffer incoming sensor values until we have a full reading to save
-let sensorBuffer = {
-  temperature:  null,
-  humidity:     null,
-  water_level:  null,
-  air_quality:  null,
-  gas_detected: null,
-  dust_level:   null,
-  heartbeat:    null
-};
+// Per-ESP buffer: espId → { field: value }
+const espBuffers = {};
+const espTimers  = {};
 
 const TOPIC_MAP = {
   "nexo/datacenter/temperature": "temperature",
@@ -44,8 +35,9 @@ const TOPIC_MAP = {
   "nexo/datacenter/air":         "air_quality",
   "nexo/datacenter/gas":         "gas_detected",
   "nexo/datacenter/dust":        "dust_level",
+  "nexo/datacenter/vibration":   "vibration_level",
   "nexo/datacenter/heartbeat":   "heartbeat",
-  // legacy ESP topics
+  // legacy
   "esp1/temperature": "temperature",
   "esp1/humidity":    "humidity",
   "esp1/water":       "water_level",
@@ -54,28 +46,34 @@ const TOPIC_MAP = {
   "esp1/dust":        "dust_level",
 };
 
-const saveSensorData = async (io) => {
-  if (sensorBuffer.temperature === null && sensorBuffer.humidity === null) return;
+// Track the last known esp_id from the current burst
+let currentEspId = "unknown";
+
+const saveSensorData = async (io, espId, buffer) => {
+  if (buffer.temperature === undefined && buffer.humidity === undefined) return;
 
   try {
     const result = await pool.query(
       `INSERT INTO sensor_data
-        (temperature, humidity, water_level, air_quality, gas_detected, dust_level, heartbeat)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+        (esp_id, temperature, humidity, water_level, air_quality,
+         gas_detected, dust_level, vibration_level, heartbeat)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING *`,
       [
-        sensorBuffer.temperature,
-        sensorBuffer.humidity,
-        sensorBuffer.water_level,
-        sensorBuffer.air_quality,
-        sensorBuffer.gas_detected,
-        sensorBuffer.dust_level,
-        sensorBuffer.heartbeat
+        espId,
+        buffer.temperature    ?? null,
+        buffer.humidity       ?? null,
+        buffer.water_level    ?? null,
+        buffer.air_quality    ?? null,
+        buffer.gas_detected   ?? null,
+        buffer.dust_level     ?? null,
+        buffer.vibration_level?? null,
+        buffer.heartbeat      ?? null,
       ]
     );
 
     const saved = result.rows[0];
-    console.log("sensor_data saved:", saved.id);
+    console.log(`sensor_data saved [${espId}]:`, saved.id);
     io.emit("new-sensor-data", saved);
 
   } catch (err) {
@@ -83,18 +81,15 @@ const saveSensorData = async (io) => {
   }
 };
 
-let saveTimer = null;
-
 export const initMQTT = (io) => {
   const options = {
     port: BROKER_PORT,
-    rejectUnauthorized: false, // allow self-signed cert
+    rejectUnauthorized: false,
     ...(caCert && { ca: caCert }),
   };
 
   const protocol = BROKER_PORT === 8883 ? "mqtts" : "mqtt";
   const brokerUrl = `${protocol}://${BROKER_HOST}`;
-
   console.log(`Connecting to MQTT broker: ${brokerUrl}:${BROKER_PORT}`);
 
   mqttClient = mqtt.connect(brokerUrl, options);
@@ -112,29 +107,32 @@ export const initMQTT = (io) => {
     lastMessageTime = Date.now();
     io.emit("mqtt_data", { topic, value });
 
+    // Capture ESP ID
+    if (topic === "nexo/datacenter/esp_id") {
+      currentEspId = value.trim();
+      return;
+    }
+
     const key = TOPIC_MAP[topic];
     if (!key) return;
 
-    sensorBuffer[key] = parseFloat(value);
+    // Use per-ESP buffer
+    const espId = currentEspId;
+    if (!espBuffers[espId]) espBuffers[espId] = {};
+    espBuffers[espId][key] = parseFloat(value);
 
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => saveSensorData(io), 500);
+    // Debounce save per ESP
+    clearTimeout(espTimers[espId]);
+    espTimers[espId] = setTimeout(() => {
+      const buf = { ...espBuffers[espId] };
+      espBuffers[espId] = {};
+      saveSensorData(io, espId, buf);
+    }, 500);
   });
 
-  mqttClient.on("close", () => {
-    console.log("MQTT disconnected from Pi broker");
-    setMqttStatus("Disconnected");
-  });
-
-  mqttClient.on("error", (err) => {
-    console.error("MQTT error:", err.message);
-    setMqttStatus("Disconnected");
-  });
-
-  mqttClient.on("offline", () => {
-    console.log("MQTT offline — Pi broker unreachable");
-    setMqttStatus("Disconnected");
-  });
+  mqttClient.on("close",   () => { console.log("MQTT disconnected"); setMqttStatus("Disconnected"); });
+  mqttClient.on("error",   (err) => { console.error("MQTT error:", err.message); setMqttStatus("Disconnected"); });
+  mqttClient.on("offline", () => { console.log("MQTT offline"); setMqttStatus("Disconnected"); });
 };
 
 export const getGatewayStatus = () => {

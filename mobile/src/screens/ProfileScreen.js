@@ -9,7 +9,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import API from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useTheme, colors } from "../context/ThemeContext";
-import { API_IP } from "@env";
+import API_IP from "../config";
 
 const ROLE_COLORS = {
   admin:      { bg: "#1e3a5f", text: "#60a5fa" },

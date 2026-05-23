@@ -1,6 +1,6 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_IP } from "@env";
+import API_IP from "../config";
 import { authEvents } from "../context/AuthContext";
 
 export const BASE_URL = `http://${API_IP}:5000/api`;
