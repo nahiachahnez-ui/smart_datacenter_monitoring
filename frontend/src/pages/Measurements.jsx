@@ -1,54 +1,42 @@
 import { useEffect, useState } from "react";
 import API from "../api/api";
-import MainLayout from "../layouts/MainLayout";
 import SensorChart from "../components/SensorChart";
 import { toast } from "react-toastify";
 
 function Measurements() {
-
   const [temperature, setTemperature] = useState([]);
-  const [humidity, setHumidity] = useState([]);
-  const [water, setWater] = useState([]);
-  const [power, setPower] = useState([]);
-  const [dust, setDust] = useState([]);
+  const [humidity,    setHumidity]    = useState([]);
+  const [water,       setWater]       = useState([]);
+  const [air,         setAir]         = useState([]);
+  const [dust,        setDust]        = useState([]);
+  const [gas,         setGas]         = useState([]);
 
   useEffect(() => {
-
     const fetchMeasurements = async () => {
       try {
+        // Read from sensor_data — the real IoT data source
+        const res = await API.get("/sensor-data/history");
 
-        const res = await API.get("/measurements?limit=200");
+        const temp = [], hum = [], wat = [], airQ = [], dus = [], gasD = [];
 
-        const temp = [], hum = [], wat = [], pow = [], dus = [];
+        res.data.forEach((row) => {
+          if (!row.created_at) return;
+          const time = new Date(row.created_at).toLocaleTimeString();
 
-        res.data.forEach((m) => {
-
-          // 🔥 SAFE CHECK
-          if (!m.recorded_at || m.value == null) return;
-
-          const date = new Date(m.recorded_at);
-
-          if (isNaN(date.getTime())) return;
-
-          const point = {
-            time: date.toLocaleTimeString(),
-            value: m.value
-          };
-
-          if (m.type === "temperature") temp.push(point);
-          if (m.type === "humidity") hum.push(point);
-          if (m.type === "water") wat.push(point);
-          if (m.type === "power") pow.push(point);
-          if (m.type === "dust") dus.push(point);
-
+          if (row.temperature  != null) temp.push({ time, value: row.temperature });
+          if (row.humidity     != null) hum.push({  time, value: row.humidity });
+          if (row.water_level  != null) wat.push({  time, value: row.water_level });
+          if (row.air_quality  != null) airQ.push({ time, value: row.air_quality });
+          if (row.dust_level   != null) dus.push({  time, value: row.dust_level });
+          if (row.gas_detected != null) gasD.push({ time, value: row.gas_detected });
         });
 
-        // 🔥 LIMIT DATA (NO CRASH)
-        setTemperature(temp.slice(-50));
-        setHumidity(hum.slice(-50));
-        setWater(wat.slice(-50));
-        setPower(pow.slice(-50));
-        setDust(dus.slice(-50));
+        setTemperature(temp);
+        setHumidity(hum);
+        setWater(wat);
+        setAir(airQ);
+        setDust(dus);
+        setGas(gasD);
 
       } catch (error) {
         console.error(error);
@@ -57,52 +45,25 @@ function Measurements() {
     };
 
     fetchMeasurements();
-
   }, []);
 
   return (
-    <MainLayout>
+    <div className="space-y-6 text-gray-900 dark:text-gray-100">
 
-      <div className="space-y-6 text-gray-900 dark:text-gray-100">
+      <h1 className="text-3xl font-bold">Measurements</h1>
 
-        <h1 className="text-3xl font-bold mb-6">
-          Measurements
-        </h1>
-
-        {/* GRID */}
-        <div className="grid grid-cols-2 gap-6">
-
-          {/* CARD */}
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow">
-            <h3 className="mb-2 font-semibold">Temperature</h3>
-            <SensorChart title="Temperature" data={temperature} />
-          </div>
-
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow">
-            <h3 className="mb-2 font-semibold">Humidity</h3>
-            <SensorChart title="Humidity" data={humidity} />
-          </div>
-
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow">
-            <h3 className="mb-2 font-semibold">Water Level</h3>
-            <SensorChart title="Water Level" data={water} />
-          </div>
-
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow">
-            <h3 className="mb-2 font-semibold">Power</h3>
-            <SensorChart title="Power" data={power} />
-          </div>
-
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow col-span-2">
-            <h3 className="mb-2 font-semibold">Dust</h3>
-            <SensorChart title="Dust" data={dust} />
-          </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <SensorChart title="Temperature (°C)"  data={temperature} />
+        <SensorChart title="Humidity (%)"      data={humidity} />
+        <SensorChart title="Air Quality (ppm)" data={air} />
+        <SensorChart title="Gas"               data={gas} />
+        <SensorChart title="Water Level (%)"   data={water} />
+        <div className="md:col-span-2">
+          <SensorChart title="Dust (µg/m³)"   data={dust} />
         </div>
-
       </div>
 
-    </MainLayout>
+    </div>
   );
 }
 

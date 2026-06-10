@@ -6,21 +6,22 @@ import pool from "../config/db.js";
 
 export const createSensor = async (req, res) => {
 
-      const { sensor_uid, type, location, esp_id, gpio_pin } = req.body;
+  const { sensor_uid, type, location, esp_id, gpio_pin } = req.body;
 
   try {
 
-
-      await pool.query(
-        `INSERT INTO sensors (sensor_uid, type, location, esp_id, gpio_pin)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING *`,
-        [sensor_uid, type, location, esp_id, gpio_pin]
-      );
+    const result = await pool.query(
+      `INSERT INTO sensors (sensor_uid, type, location, esp_id, gpio_pin)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [sensor_uid, type, location, esp_id, gpio_pin]
+    );
 
     res.status(201).json(result.rows[0]);
 
   } catch (error) {
+
+    console.error(error); // 🔥 add this for debug
 
     res.status(500).json({
       error: error.message
@@ -29,7 +30,6 @@ export const createSensor = async (req, res) => {
   }
 
 };
-
 
 /* ===========================
    GET ALL SENSORS

@@ -2,80 +2,88 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import Sensors from "./pages/Sensors";
 import Alerts from "./pages/Alerts";
+import Sensors from "./pages/Sensors";
 import Measurements from "./pages/Measurements";
 import Technicians from "./pages/Technicians";
 
 import ProtectedRoute from "./components/ProtectedRoute";
-import VerifySuccess from "./pages/VerifySuccess";
-import VerifyFailed from "./pages/VerifyFailed";
+import MainLayout from "./layouts/MainLayout";
 
 function App() {
 
   return (
-
     <BrowserRouter>
 
       <Routes>
 
+        {/* LOGIN */}
         <Route path="/" element={<Login />} />
 
+        {/* DASHBOARD */}
         <Route
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <MainLayout>
+                <Dashboard />
+              </MainLayout>
             </ProtectedRoute>
           }
         />
 
+        {/* ALERTS */}
         <Route
           path="/alerts"
           element={
             <ProtectedRoute>
-              <Alerts />
+              <MainLayout>
+                <Alerts />
+              </MainLayout>
             </ProtectedRoute>
           }
         />
 
+        {/* SENSORS */}
         <Route
           path="/sensors"
           element={
             <ProtectedRoute>
-              <Sensors />
+              <MainLayout>
+                <Sensors />
+              </MainLayout>
             </ProtectedRoute>
           }
         />
 
+        {/* MEASUREMENTS */}
         <Route
           path="/measurements"
           element={
             <ProtectedRoute>
-              <Measurements />
+              <MainLayout>
+                <Measurements />
+              </MainLayout>
             </ProtectedRoute>
           }
         />
 
-       
-
+        {/* TECHNICIANS */}
         <Route
           path="/technicians"
           element={
             <ProtectedRoute roleRequired="admin">
-              <Technicians />
+              <MainLayout>
+                <Technicians />
+              </MainLayout>
             </ProtectedRoute>
           }
         />
-        <Route path="/verify-success" element={<VerifySuccess/>}/>
-        <Route path="/verify-failed" element={<VerifyFailed/>}/>
 
       </Routes>
 
     </BrowserRouter>
-
   );
-
 }
 
 export default App;

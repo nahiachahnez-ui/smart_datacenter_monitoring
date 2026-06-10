@@ -1,56 +1,51 @@
-import { NavLink } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 function Sidebar() {
 
+  const location = useLocation();
+
   const role = localStorage.getItem("role");
 
-  const linkClass = ({ isActive }) =>
-    `block px-4 py-2 rounded transition ${
-      isActive
-        ? "bg-green-600 text-white"
-        : "text-gray-300 hover:bg-gray-700"
-    }`;
+  const menu = [
+    { name: "Dashboard", path: "/dashboard" },
+    { name: "Alerts", path: "/alerts" },
+    { name: "Measurements", path: "/measurements" },
+    { name: "Sensors", path: "/sensors" },
+    ...(role === "admin" ? [{ name: "Technicians", path: "/technicians" }] : []),
+  ];
 
   return (
+    <div className="w-64 bg-gray-900 text-white p-6">
 
-    <div className="w-64 bg-gray-900 text-white min-h-screen">
+      <div className="mb-10">
 
-      <div className="p-6 text-xl font-bold border-b border-gray-700">
-        Datacenter
+        <h1 className="text-2xl font-bold tracking-wider text-blue-400">
+          NEXO
+        </h1>
       </div>
 
-      <nav className="p-4 space-y-2">
+     
 
-        <NavLink to="/dashboard" className={linkClass}>
-          Dashboard
-        </NavLink>
+      <nav className="flex flex-col gap-2">
 
-        <NavLink to="/alerts" className={linkClass}>
-          Alerts
-        </NavLink>
-
-        <NavLink to="/measurements" className={linkClass}>
-          Measurements
-        </NavLink>
-
-        <NavLink to="/sensors" className={linkClass}>
-          Sensors
-        </NavLink>
-
-        {/* ADMIN ONLY */}
-
-        {role === "admin" && (
-          <NavLink to="/technicians" className={linkClass}>
-            Technicians
-          </NavLink>
-        )}
+        {menu.map((item) => (
+          <Link
+            key={item.name}
+            to={item.path}
+            className={`px-4 py-2 rounded transition ${
+              location.pathname === item.path
+                ? "bg-green-600"
+                : "hover:bg-gray-800"
+            }`}
+          >
+            {item.name}
+          </Link>
+        ))}
 
       </nav>
 
     </div>
-
   );
-
 }
 
 export default Sidebar;

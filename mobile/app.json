@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "NEXO",
+    "slug": "nexo-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#111827"
+    },
+    "android": {
+      "permissions": [
+        "android.permission.NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.chahineznahia.nexomobile"
+    },
+    "ios": {
+      "supportsTablet": false
+    },
+    "newArchEnabled": true,
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#3b82f6"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow NEXO to access your photos to set a profile picture."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "17787ddd-c12e-4394-935e-5bb6f640bbd8"
+      }
+    }
+  }
+}
