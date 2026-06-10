@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,6 +10,8 @@ import PagerView from "react-native-pager-view";
 
 import { useAuth } from "../context/AuthContext";
 import { useTheme, colors } from "../context/ThemeContext";
+import socket from "../services/socket";
+import API from "../services/api";
 import LoginScreen     from "../screens/LoginScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import AlertsScreen    from "../screens/AlertsScreen";
@@ -29,9 +31,25 @@ const SCREENS = [DashboardScreen, AlertsScreen, SensorsScreen, ProfileScreen];
 
 function SwipeableTabs() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [alertCount, setAlertCount]   = useState(0);
   const pagerRef = useRef(null);
   const { dark } = useTheme();
   const c = colors(dark);
+
+  // Load active alert count and update on new alerts
+  useEffect(() => {
+    const loadCount = async () => {
+      try {
+        const res = await API.get("/alerts");
+        const active = (res.data || []).filter(a => a.status === "active");
+        setAlertCount(active.length);
+      } catch {}
+    };
+
+    loadCount();
+    socket.on("new-alert", () => loadCount());
+    return () => socket.off("new-alert");
+  }, []);
 
   const goTo = (index) => {
     pagerRef.current?.setPage(index);
@@ -90,6 +108,14 @@ function SwipeableTabs() {
                   color={focused ? "#3b82f6" : c.textMuted}
                 />
               </Animated.View>
+              {/* Badge for Alerts tab */}
+              {tab.name === "Alerts" && alertCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {alertCount > 9 ? "9+" : alertCount}
+                  </Text>
+                </View>
+              )}
               <Text style={[styles.tabLabel, { color: focused ? "#3b82f6" : c.textMuted }]}>
                 {tab.name}
               </Text>
@@ -182,5 +208,22 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 2,
     backgroundColor: "#3b82f6",
+  },
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: 8,
+    backgroundColor: "#ef4444",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "bold",
   },
 });

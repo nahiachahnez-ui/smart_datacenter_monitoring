@@ -23,6 +23,8 @@ const BROKER_PORT = parseInt(process.env.MQTT_PORT || "8883");
 
 let mqttClient;
 let lastMessageTime = null;
+let ioRef = null; // keep reference to emit real-time status changes
+let gatewayOnline = false; // true when heartbeat received, false on broker disconnect
 
 // Per-ESP buffer: espId → { field: value }
 const espBuffers = {};
@@ -82,6 +84,7 @@ const saveSensorData = async (io, espId, buffer) => {
 };
 
 export const initMQTT = (io) => {
+  ioRef = io;
   const options = {
     port: BROKER_PORT,
     rejectUnauthorized: false,
@@ -137,5 +140,5 @@ export const initMQTT = (io) => {
 
 export const getGatewayStatus = () => {
   if (!lastMessageTime) return "Offline";
-  return Date.now() - lastMessageTime > 10000 ? "Offline" : "Online";
+  return Date.now() - lastMessageTime > 60000 ? "Offline" : "Online";
 };

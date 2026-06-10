@@ -10,7 +10,11 @@
       "backgroundColor": "#111827"
     },
     "android": {
-      "permissions": ["NOTIFICATIONS"]
+      "permissions": [
+        "android.permission.NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.chahineznahia.nexomobile"
     },
     "ios": {
       "supportsTablet": false
@@ -29,6 +33,11 @@
           "photosPermission": "Allow NEXO to access your photos to set a profile picture."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "17787ddd-c12e-4394-935e-5bb6f640bbd8"
+      }
+    }
   }
 }

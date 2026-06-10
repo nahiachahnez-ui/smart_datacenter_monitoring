@@ -26,7 +26,7 @@ print("AI Models Loaded Successfully")
 # =========================================================
 
 DB_CONFIG = {
-    "host":     "192.168.1.4",
+    "host":     "192.168.1.6",
     "database": "datacenter",
     "user":     "postgres",
     "password": "chahnouzette",
@@ -135,7 +135,7 @@ def save_to_database(esp_id, data, predictions):
             esp_id,
             temperature, humidity, gas_detected, air_quality,
             smoke_level, water_level, dust_level, vibration_level, heartbeat,
-            risk_level, anomaly_label, predicted_faillure, maintenance_required
+            risk_level, anomaly_label, predicted_failure, maintenance_required
         )
         VALUES (%s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s,
@@ -264,11 +264,10 @@ def on_message(client, userdata, msg):
     payload = msg.payload.decode()
     print(f"Received -> {topic}: {payload}")
 
-    # Capture ESP ID
+    # Capture ESP ID — do NOT return, fall through to prediction trigger below
     if topic == "nexo/datacenter/esp_id":
         current_esp_id = payload.strip()
         print(f"Current ESP -> {current_esp_id}")
-        return
 
     # Store sensor value
     if topic in TOPIC_MAP:
@@ -279,18 +278,15 @@ def on_message(client, userdata, msg):
             print("Invalid Payload:", e)
             return
 
-    # Run prediction only on heartbeat + interval
-    if topic == "nexo/datacenter/heartbeat":
+    # Run prediction only on esp_id arrival (all sensors already received)
+    # esp_id is published LAST in each burst — perfect trigger point
+    if topic == "nexo/datacenter/esp_id":
         current_time = time.time()
         if current_time - last_prediction_time >= PREDICTION_INTERVAL:
             last_prediction_time = current_time
             run_prediction()
 
-# =========================================================
-# START MQTT CLIENT
-# =========================================================
-
-client = mqtt.Client()
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
 client.on_connect = on_connect
 client.on_message = on_message
 
@@ -302,4 +298,4 @@ try:
 except KeyboardInterrupt:
     print("\nAI Engine Stopped")
 except Exception as e:
-    print("Fatal Error:", e)
+    print("Fatal Error:", e) 

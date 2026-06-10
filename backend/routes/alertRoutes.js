@@ -6,14 +6,14 @@ import {
   cancelAlert,
   reopenAlert
 } from "../controllers/alertController.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.get("/stats", getAlertStats);
-router.get("/", getAlerts);
-
-router.put("/:id/resolve", resolveAlert);
-router.put("/:id/cancel", cancelAlert);
-router.put("/:id/reopen", reopenAlert); // 🔥 NEW
+router.get("/stats",      protect, getAlertStats);
+router.get("/",           protect, getAlerts);
+router.put("/:id/resolve",protect, resolveAlert);
+router.put("/:id/cancel", protect, cancelAlert);
+router.put("/:id/reopen", protect, reopenAlert);
 
 export default router;
